@@ -69,7 +69,8 @@ pub fn spawn_navmesh(
             Mesh3d(meshes.add(mesh)),
             MeshMaterial3d(materials.add(material)),
         ))
-        .observe(crate::pathfinding::on_mesh_click)
+        .observe(crate::pathfinding::on_mesh_press)
+        .observe(crate::pathfinding::on_mesh_release)
         .observe(crate::pathfinding::on_mesh_move);
 
     eprintln!(

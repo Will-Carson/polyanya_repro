@@ -2,44 +2,76 @@ use bevy::prelude::*;
 
 use crate::NavmeshResource;
 
+#[derive(Default, PartialEq, Eq)]
+enum ClickPhase {
+    #[default]
+    PlacingStart,
+    PlacingEnd,
+    Dragging,
+    Done,
+}
+
 #[derive(Resource, Default)]
 pub struct PathState {
     pub start: Option<Vec3>,
     pub end: Option<Vec3>,
     pub path: Option<Vec<Vec3>>,
-    /// Once start is placed, true until next click clears it.
-    pub pinned: bool,
+    phase: ClickPhase,
 }
 
-pub fn on_mesh_click(
-    click: On<Pointer<Click>>,
+/// Click places start or end. Click-and-hold on end allows dragging.
+pub fn on_mesh_press(
+    press: On<Pointer<Press>>,
     mut path_state: ResMut<PathState>,
 ) {
-    if click.button != PointerButton::Primary {
+    if press.button != PointerButton::Primary {
         return;
     }
-    let Some(world_pos) = click.hit.position else {
+    let Some(world_pos) = press.hit.position else {
         return;
     };
 
-    if !path_state.pinned {
-        // Place start pin.
-        path_state.start = Some(world_pos);
-        path_state.end = None;
-        path_state.path = None;
-        path_state.pinned = true;
-    } else {
-        // Lock end and reset — next click places a new start.
-        path_state.pinned = false;
+    match path_state.phase {
+        ClickPhase::PlacingStart => {
+            path_state.start = Some(world_pos);
+            path_state.end = None;
+            path_state.path = None;
+            path_state.phase = ClickPhase::PlacingEnd;
+        }
+        ClickPhase::Done => {
+            // Reset and place new start.
+            path_state.start = Some(world_pos);
+            path_state.end = None;
+            path_state.path = None;
+            path_state.phase = ClickPhase::PlacingEnd;
+        }
+        ClickPhase::PlacingEnd => {
+            // Start dragging the end point.
+            path_state.phase = ClickPhase::Dragging;
+        }
+        ClickPhase::Dragging => {}
     }
 }
 
+pub fn on_mesh_release(
+    release: On<Pointer<Release>>,
+    mut path_state: ResMut<PathState>,
+) {
+    if release.button != PointerButton::Primary {
+        return;
+    }
+    if path_state.phase == ClickPhase::Dragging {
+        path_state.phase = ClickPhase::Done;
+    }
+}
+
+/// As the pointer moves, update end point and pathfind.
 pub fn on_mesh_move(
     hover: On<Pointer<Move>>,
     mut path_state: ResMut<PathState>,
     navmesh: Option<Res<NavmeshResource>>,
 ) {
-    if !path_state.pinned {
+    if path_state.phase != ClickPhase::PlacingEnd && path_state.phase != ClickPhase::Dragging {
         return;
     }
     let Some(world_pos) = hover.hit.position else {
@@ -73,15 +105,16 @@ pub fn on_mesh_move(
 }
 
 pub fn draw_path_gizmos(mut gizmos: Gizmos, path_state: Res<PathState>) {
-    let marker_color = Color::srgb(1.0, 1.0, 0.0);
+    let start_color = Color::srgb(0.2, 1.0, 0.2);
+    let end_color = Color::srgb(1.0, 0.3, 0.3);
     let path_color = Color::srgb(1.0, 0.0, 1.0);
     let lift = Vec3::Y * 0.5;
 
     if let Some(start) = path_state.start {
-        gizmos.sphere(Isometry3d::from_translation(start + lift), 0.5, marker_color);
+        gizmos.sphere(Isometry3d::from_translation(start + lift), 0.5, start_color);
     }
     if let Some(end) = path_state.end {
-        gizmos.sphere(Isometry3d::from_translation(end + lift), 0.5, marker_color);
+        gizmos.sphere(Isometry3d::from_translation(end + lift), 0.5, end_color);
     }
 
     if let Some(ref path) = path_state.path {

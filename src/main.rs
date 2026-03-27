@@ -36,12 +36,25 @@ fn setup(
 
     camera::spawn_orbit_camera(&mut commands);
 
+    // Key light — warm, from above-right.
     commands.spawn((
         DirectionalLight {
-            illuminance: 3000.0,
-            shadows_enabled: false,
+            illuminance: 5000.0,
+            shadows_enabled: true,
+            color: Color::srgb(1.0, 0.95, 0.9),
             ..default()
         },
-        Transform::from_xyz(50.0, 100.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(60.0, 120.0, 40.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+
+    // Fill light — cooler, from the opposite side, dimmer.
+    commands.spawn((
+        DirectionalLight {
+            illuminance: 1500.0,
+            shadows_enabled: false,
+            color: Color::srgb(0.85, 0.9, 1.0),
+            ..default()
+        },
+        Transform::from_xyz(-40.0, 80.0, -60.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
