@@ -1,8 +1,11 @@
-use bevy::input::mouse::AccumulatedMouseMotion;
+use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll};
 use bevy::prelude::*;
 
 const ORBIT_SENSITIVITY: f32 = 0.005;
 const ORBIT_LERP_SPEED: f32 = 5.0;
+const ZOOM_SENSITIVITY: f32 = 15.0;
+const MIN_DISTANCE: f32 = 5.0;
+const MAX_DISTANCE: f32 = 500.0;
 
 #[derive(Component)]
 pub struct OrbitCamera {
@@ -15,8 +18,8 @@ impl Default for OrbitCamera {
     fn default() -> Self {
         Self {
             yaw: 0.0,
-            pitch: -0.6,
-            distance: 80.0,
+            pitch: -0.4,
+            distance: 200.0,
         }
     }
 }
@@ -37,6 +40,7 @@ pub fn spawn_orbit_camera(commands: &mut Commands) {
 pub fn orbit_camera_system(
     time: Res<Time>,
     mouse_motion: Res<AccumulatedMouseMotion>,
+    mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut q_camera: Query<(&mut Transform, &mut OrbitCamera)>,
 ) {
@@ -49,7 +53,13 @@ pub fn orbit_camera_system(
         let delta = mouse_motion.delta;
         orbit.yaw -= delta.x * ORBIT_SENSITIVITY;
         orbit.pitch -= delta.y * ORBIT_SENSITIVITY;
-        orbit.pitch = orbit.pitch.clamp(-1.4, -0.1);
+        orbit.pitch = orbit.pitch.clamp(-1.4, 0.3);
+    }
+
+    // Scroll to zoom.
+    if mouse_scroll.delta.y != 0.0 {
+        orbit.distance -= mouse_scroll.delta.y * ZOOM_SENSITIVITY;
+        orbit.distance = orbit.distance.clamp(MIN_DISTANCE, MAX_DISTANCE);
     }
 
     // Compute orbit position from spherical coordinates around origin.
